@@ -37,7 +37,7 @@ export default class RegisterController {
          const token = jwt.sign({ userId: createdUser.userId, email: createdUser.email }, JWT_SECRET, {
             expiresIn: '1h',
          });
-         res.status(201).json({
+         res.status(201).send({
             status: "success",
             message: "Registration successful",
             data: {
@@ -52,7 +52,7 @@ export default class RegisterController {
             }
          });
       } catch (error: any) {
-         res.status(400).json({
+         res.status(400).send({
             status: "Bad request",
             message: "Registration unsuccessful",
             statusCode: 400,

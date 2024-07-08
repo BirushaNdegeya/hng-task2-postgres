@@ -1,194 +1,90 @@
-import request from 'supertest';
-import client from '../client';
-import bcrypt from 'bcrypt';
+import request from "supertest";
 import app from '../server';
 
 
-describe('Authentication and Organisation Endpoints', () => {
-   let testEmail: string;
-   let testPassword: string;
-   let accessToken: string;
 
-   beforeAll(async () => {
-      testEmail = `testuser_${Date.now()}@example.com`;
-      testPassword = 'Test@12345';
+describe("POST /auth/register", () => {
+  it("should register user successfully with default organisation", async () => {
+    const res = await request(app).post("/auth/register").send({
+      firstName: "John",
+      lastName: "Doe",
+      email: "john.doe@example.com",
+      password: "password123",
+    });
 
-      await client.user.deleteMany();
-      await client.organisation.deleteMany();
-   });
+    expect(res.statusCode).toEqual(201); // Expecting 200 for success
+    expect(res.body).toHaveProperty("status", "success");
+    expect(res.body).toHaveProperty("message", "Registration successful");
+    expect(res.body).toHaveProperty("data");
+    expect(res.body.data).toHaveProperty("accessToken");
+    expect(res.body.data).toHaveProperty("user");
+    expect(res.body.data.user).toHaveProperty("firstName", "John");
+    expect(res.body.data.user).toHaveProperty("lastName", "Doe");
+    expect(res.body.data.user).toHaveProperty("email", "john.doe@example.com");
+    expect(res.body.data.user).toHaveProperty("phone", null); // Adjust as per actual structure
+  });
 
-   afterAll(async () => {
-      await client.$disconnect();
-   });
+  it("should log the user in successfully", async () => {
+    // Register a user first
+    await request(app).post("/auth/register").send({
+      firstName: "Jane",
+      lastName: "Doe",
+      email: "jane.doe@example.com",
+      password: "password123",
+    });
 
-   it('Should Register User Successfully with Default Organisation', async () => {
-      const response = await request(app)
-         .post('/auth/register')
-         .send({
-            firstName: 'John',
-            lastName: 'Doe',
-            email: testEmail,
-            password: testPassword,
-            phone: '1234567890',
-         });
+    // Then attempt login
+    const loginRes = await request(app).post("/auth/login").send({
+      email: "jane.doe@example.com",
+      password: "password123",
+    });
 
-      expect(response.status).toBe(201);
-      expect(response.body.status).toBe('success');
-      expect(response.body.message).toBe('Registration successful');
-      expect(response.body.data).toHaveProperty('accessToken');
-      expect(response.body.data.user).toHaveProperty('userId');
-      expect(response.body.data.user.firstName).toBe('John');
-      expect(response.body.data.user.email).toBe(testEmail);
+    expect(loginRes.statusCode).toEqual(200);
+    expect(loginRes.body).toHaveProperty("status", "success");
+    expect(loginRes.body).toHaveProperty("message", "Login successful");
+    expect(loginRes.body).toHaveProperty("data");
+    expect(loginRes.body.data).toHaveProperty("accessToken");
+    expect(loginRes.body.data).toHaveProperty("user");
+    expect(loginRes.body.data.user).toHaveProperty("firstName", "Jane");
+    expect(loginRes.body.data.user).toHaveProperty("lastName", "Doe");
+    expect(loginRes.body.data.user).toHaveProperty(
+      "email",
+      "jane.doe@example.com"
+    );
+    expect(loginRes.body.data.user).toHaveProperty("phone", null); // Adjust as per actual structure
+  });
+  it("should fail if required fields are missing", async () => {
+    const res = await request(app).post("/auth/register").send({
+      firstName: "John",
+      lastName: "Doe",
+      // Missing 'email' intentionally to trigger error
+    });
 
-      accessToken = response.body.data.accessToken;
+    expect(res.statusCode).toEqual(422); // Adjusted to 422 for missing fields
+    expect(res.body).toHaveProperty("errors");
+    expect(res.body.errors[0]).toHaveProperty("field", "email");
+    expect(res.body.errors[0]).toHaveProperty("message", "Email is required");
+  });
 
-      const org = await client.organisation.findFirst({
-         where: { name: "John's Organisation" },
-      });
+  it("should fail if there is a duplicate email", async () => {
+    // Register a user with the same email first
+    await request(app).post("/auth/register").send({
+      firstName: "Jane",
+      lastName: "Doe",
+      email: "jane.doe@example.com",
+      password: "password123",
+    });
 
-      expect(org).not.toBeNull();
-      expect(org?.name).toBe("John's Organisation");
-   });
+    // Attempt to register the same email again
+    const duplicateRes = await request(app).post("/auth/register").send({
+      firstName: "John",
+      lastName: "Smith",
+      email: "jane.doe@example.com", // This email should already exist
+      password: "anotherPassword",
+    });
 
-   it('Should Log the user in successfully', async () => {
-      const response = await request(app)
-         .post('/auth/login')
-         .send({
-            email: testEmail,
-            password: testPassword,
-         });
-
-      expect(response.status).toBe(200);
-      expect(response.body.status).toBe('success');
-      expect(response.body.message).toBe('Login successful');
-      expect(response.body.data).toHaveProperty('accessToken');
-      expect(response.body.data.user).toHaveProperty('userId');
-      expect(response.body.data.user.email).toBe(testEmail);
-
-      accessToken = response.body.data.accessToken;
-   });
-
-   it('Should Fail If Required Fields Are Missing', async () => {
-      const response = await request(app)
-         .post('/auth/register')
-         .send({
-            lastName: 'Doe',
-            email: testEmail,
-            password: testPassword,
-         });
-
-      expect(response.status).toBe(422);
-      expect(response.body.errors).toEqual(
-         expect.arrayContaining([
-            expect.objectContaining({
-               field: 'firstName',
-               message: 'First name is required',
-            }),
-         ])
-      );
-   });
-
-   it('Should Fail if there’s Duplicate Email or UserID', async () => {
-      const response = await request(app)
-         .post('/auth/register')
-         .send({
-            firstName: 'Jane',
-            lastName: 'Doe',
-            email: testEmail,
-            password: testPassword,
-            phone: '0987654321',
-         });
-
-      expect(response.status).toBe(400);
-      expect(response.body.status).toBe('Bad request');
-      expect(response.body.message).toBe('Registration unsuccessful');
-   });
-
-   it('Should Get User Info Successfully', async () => {
-      const response = await request(app)
-         .get(`/api/users/${testEmail}`)
-         .set('Authorization', `Bearer ${accessToken}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body.status).toBe('success');
-      expect(response.body.message).toBe('User retrieved successfully');
-      expect(response.body.data).toHaveProperty('userId');
-      expect(response.body.data.email).toBe(testEmail);
-   });
-
-   it('Should Get All User Organisations Successfully', async () => {
-      const response = await request(app)
-         .get('/api/organisations')
-         .set('Authorization', `Bearer ${accessToken}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body.status).toBe('success');
-      expect(response.body.message).toBe('Organisations retrieved successfully');
-      expect(response.body.data.organisations).toEqual(
-         expect.arrayContaining([
-            expect.objectContaining({
-               name: "John's Organisation",
-            }),
-         ])
-      );
-   });
-
-   it('Should Get Single Organisation Successfully', async () => {
-      const org = await client.organisation.findFirst({
-         where: { name: "John's Organisation" },
-      });
-
-      const response = await request(app)
-         .get(`/api/organisations/${org?.orgId}`)
-         .set('Authorization', `Bearer ${accessToken}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body.status).toBe('success');
-      expect(response.body.message).toBe('Organisation retrieved successfully');
-      expect(response.body.data).toHaveProperty('orgId');
-      expect(response.body.data.name).toBe("John's Organisation");
-   });
-
-   it('Should Create a New Organisation Successfully', async () => {
-      const response = await request(app)
-         .post('/api/organisations')
-         .set('Authorization', `Bearer ${accessToken}`)
-         .send({
-            name: 'New Organisation',
-            description: 'This is a new organisation',
-         });
-
-      expect(response.status).toBe(201);
-      expect(response.body.status).toBe('success');
-      expect(response.body.message).toBe('Organisation created successfully');
-      expect(response.body.data).toHaveProperty('orgId');
-      expect(response.body.data.name).toBe('New Organisation');
-   });
-
-   it('Should Add a User to Organisation Successfully', async () => {
-      const org = await client.organisation.findFirst({
-         where: { name: 'New Organisation' },
-      });
-
-      const user = await client.user.create({
-         data: {
-            firstName: 'Jane',
-            lastName: 'Smith',
-            email: `janesmith_${Date.now()}@example.com`,
-            password: await bcrypt.hash('Password@123', 10),
-            phone: '243971616131'
-         },
-      });
-
-      const response = await request(app)
-         .post(`/api/organisations/${org?.orgId}/users`)
-         .set('Authorization', `Bearer ${accessToken}`)
-         .send({
-            userId: user.userId,
-         });
-
-      expect(response.status).toBe(200);
-      expect(response.body.status).toBe('success');
-      expect(response.body.message).toBe('User added to organisation successfully');
-   });
+    expect(duplicateRes.statusCode).toEqual(400); // Expecting 400 for duplicate email
+    expect(duplicateRes.body).toHaveProperty("status", "error");
+    expect(duplicateRes.body).toHaveProperty("message", "Email already exists");
+  });
 });

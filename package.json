@@ -4,6 +4,8 @@
   "description": "",
   "main": "index.ts",
   "scripts": {
+    "migrate": "npx prisma migrate deploy",
+    "generate": "npx prisma generate",
     "start": "node src/index.ts",
     "dev": "nodemon src/index.ts",
     "test": "jest",
