@@ -20,13 +20,17 @@ model User {
   password  String
   phone     String
 
+  organisation Organisation[] @relation("organisation_user")
+
   @@map("user")
 }
 
 model Organisation {
-  orgId String @id @default(uuid()) @unique
-  name String
-  description String? 
+  orgId       String  @id @unique @default(uuid())
+  name        String
+  description String?
 
-  @@map("organisation") 
+  users User[] @relation("organisation_user")
+
+  @@map("organisation")
 }
