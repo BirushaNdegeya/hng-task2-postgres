@@ -3,9 +3,9 @@ import client from "../client";
 import dotenv from 'dotenv';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import isValidEmail from "../helpers/isValidEmail";
-import isValidInput from "../helpers/isValidInput";
-import isValidPassword from "../helpers/isValidPassword";
+import isValidEmail from "../utils/isValidEmail";
+import isValidInput from "../utils/isValidInput";
+import isValidPassword from "../utils/isValidPassword";
 
 
 dotenv.config();

@@ -2,7 +2,6 @@ import request from 'supertest';
 import client from '../client';
 import bcrypt from 'bcrypt';
 import app from '../server';
-import exp from 'constants';
 
 
 describe('REGISTER ENDPOINT', () => {

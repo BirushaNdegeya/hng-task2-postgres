@@ -1,6 +1,6 @@
-import request from "supertest";
+// import request from "supertest";
 import app from '../server';
-
+import { describe, test, expect, it } from '@jest/globals';
 
 
 describe("POST /auth/register", () => {
@@ -21,7 +21,7 @@ describe("POST /auth/register", () => {
     expect(res.body.data.user).toHaveProperty("firstName", "John");
     expect(res.body.data.user).toHaveProperty("lastName", "Doe");
     expect(res.body.data.user).toHaveProperty("email", "john.doe@example.com");
-    expect(res.body.data.user).toHaveProperty("phone", null); // Adjust as per actual structure
+    expect(res.body.data.user).toHaveProperty("phone", null);
   });
 
   it("should log the user in successfully", async () => {
