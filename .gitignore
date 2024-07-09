@@ -31,3 +31,5 @@ TestResults.xml
 /node_modules
 /app
 .vercel
+
+/dist
